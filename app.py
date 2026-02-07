@@ -18,28 +18,42 @@ if 'logado' not in st.session_state:
     st.session_state.logado = False
 
 if not st.session_state.logado:
-    st.image("https://cdn-icons-png.flaticon.com/512/3443/3443338.png", width=100) # Logo genérica escolar
+    st.image("https://cdn-icons-png.flaticon.com/512/3443/3443338.png", width=100)
     st.title("Acesso dos Pais")
-    telefone = st.text_input("Digite seu celular com DDD:")
+    
+    # Remove espaços e traços automaticamente do que o usuário digita
+    entrada = st.text_input("Digite seu celular com DDD:")
+    telefone_limpo = entrada.replace("-", "").replace(" ", "").strip()
     
     if st.button("Entrar"):
         try:
             conn = st.connection("gsheets", type=GSheetsConnection)
+            # Lê a planilha e garante que todos os títulos de coluna sejam minúsculos
             df = conn.read()
-            if telefone in df['Telefone'].astype(str).values:
+            df.columns = [c.lower() for c in df.columns]
+            
+            # Converte a coluna de telefone para texto e limpa espaços
+            df['telefone'] = df['telefone'].astype(str).str.replace(".0", "", regex=False).str.strip()
+            
+            if telefone_limpo in df['telefone'].values:
                 st.session_state.logado = True
-                st.session_state.user = df[df['Telefone'].astype(str) == telefone].iloc[0]
+                st.session_state.user = df[df['telefone'] == telefone_limpo].iloc[0]
                 st.rerun()
             else:
                 st.error("Número não encontrado no sistema.")
-        except:
-            st.warning("Configure a planilha nos Secrets do Streamlit para o login funcionar.")
+        except Exception as e:
+            st.warning("Erro de conexão. Verifique se os Secrets estão configurados corretamente.")
+            # st.write(e) # Use esta linha apenas para ver o erro real se precisar
 
 # APP PÓS-LOGIN
 else:
     user = st.session_state.user
-    st.title(f"Mural: {user['Turma']}")
-    st.write(f"Olá, Sr(a). {user['Nome']}")
+    # Busca 'turma' ou 'nome' em minúsculo conforme sua planilha
+    turma = user.get('turma', 'Geral')
+    nome = user.get('nome', 'Responsável')
+    
+    st.title(f"Mural: {turma}")
+    st.write(f"Olá, Sr(a). {nome}")
     
     st.markdown("""
         <div class="card">
